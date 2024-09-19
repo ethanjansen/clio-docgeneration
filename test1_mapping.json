@@ -1,0 +1,6 @@
+{
+    "user": ["user", "username", "person"],
+    "user_bold": [],
+    "date": ["date"],
+    "parType": ["type", "paragraphtype", "paragraph_type", "par_type"]
+}
