@@ -10,7 +10,7 @@ def main():
     input = {"username": "Ethan Jansen",
              "person": "Not Ethan Jansen",
              "date": "2021-09-01",
-             "par_type": "second",
+             "par_type": "",
              }
     generate_doc("test1_template.docx", "test1_generated.docx", translate_io(input, "test1_mapping.json"))
 
