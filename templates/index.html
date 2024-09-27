@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dan Roach Law Document Automation</title>
-    <link rel="stylesheet" href="{{url_for('static', filename='styles/style.css')}}">
+    <link rel="stylesheet" href="{{url_for('static', filename='style/style.css')}}">
 </head>
 
 <body>
@@ -15,14 +15,14 @@
         <section></section>
             <h2>Authorize Clio App</h2>
             <p>Authorize this app with your Clio account</p>
-            <form action="{{url_for('authorize')}}" method="post">
+            <form action="{{url_for('authorize')}}">
                 <button type="submit">Authorize</button>
             </form>
         </section>
         <section>
             <h2>Generate Documents</h2>
             <p>Use the form below to generate documents.</p>
-            <form action="{{url_for('generate')}}" method="post">
+            <form action="{{url_for('generate')}}">
                 <label for="document">Document:</label>
                 <select name="document" id="document">
                     <option value="will">Will</option>

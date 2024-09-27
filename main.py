@@ -1,20 +1,25 @@
 # Main for docGeneration/main.py:
-from translate_io import translate_io
-from doc import generate_doc
+from flask import Flask, render_template, request
+from waitress import serve
 
-#### Functions ####
-def main():
-    print("Running proof of concept")
+#### Flask & Functions ####
+app = Flask(__name__)
 
-    # run test1
-    input = {"username": "Ethan Jansen",
-             "person": "Not Ethan Jansen",
-             "date": "2021-09-01",
-             "par_type": "",
-             }
-    generate_doc("test1_template.docx", "test1_generated.docx", translate_io(input, "test1_mapping.json"))
+# Root Index
+@app.route('/')
+@app.route('/index')
+def index():
+    return render_template('index.html')
+
+@app.route('/authorize')
+def authorize():
+    return "Authorizing..."
+
+@app.route('/generate')
+def generate():
+    return "Generating..."
 
 
 #### Main ####
 if __name__ == "__main__":
-    main()
+    serve(app, host='0.0.0.0', port=80)
