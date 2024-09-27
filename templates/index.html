@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dan Roach Law Document Automation</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='styles/style.css')}}">
+</head>
+
+<body>
+    <header>
+        <h1>Dan Roach Law Document Automation</h1>
+    </header>
+    <main>
+        <section></section>
+            <h2>Authorize Clio App</h2>
+            <p>Authorize this app with your Clio account</p>
+            <form action="{{url_for('authorize')}}" method="post">
+                <button type="submit">Authorize</button>
+            </form>
+        </section>
+        <section>
+            <h2>Generate Documents</h2>
+            <p>Use the form below to generate documents.</p>
+            <form action="{{url_for('generate')}}" method="post">
+                <label for="document">Document:</label>
+                <select name="document" id="document">
+                    <option value="will">Will</option>
+                    <option value="trust">Trust</option>
+                    <option value="power_of_attorney">Power of Attorney</option>
+                </select>
+                <button type="submit">Generate</button>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <p>Example Text</p>
+    </footer>    
+</body>
+
+</html>
