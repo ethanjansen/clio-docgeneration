@@ -238,7 +238,7 @@ class Clio:
             "target_url": f"{self._redirectBaseUrl}/custom_actions/generate_document", #TODO: proper URL
             "ui_reference": "matters/show",
         }
-        response = requests.post(f"{self._baseUrl}/custom_actions.json", data=params)
+        response = requests.post(f"{self._baseUrl}/custom_actions.json", data=params) #TODO: use wrapper method to include authorization header
         handledReponse = self._handleRequest(response)
 
         if handledReponse[0]:
@@ -284,6 +284,9 @@ class Clio:
         pass
 
 
+    # API Methods
+
+
     # Hidden API Wrapper Methods
         #TODO: Consider adding rate limiting (monitoring the headers of the response)
     def _makeCall(self, method: str, path: str, data: dict = None) -> dict:
@@ -309,6 +312,4 @@ class Clio:
         """
         pass
 
-
-    # API GET Methods
     
