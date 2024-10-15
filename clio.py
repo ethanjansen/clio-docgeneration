@@ -12,15 +12,13 @@ class Clio:
     # Enums/Constants/Types
     class CustomAction(Enum):
         GENERATE_DOCUMENT = 1
-        #IMPORT_MATTER_FROM_GOOGLE_FORMS = 2 #NYI
-
+        # IMPORT_MATTER_FROM_GOOGLE_FORMS = 2 #NYI
 
     # Class Variables
     _baseUrl = "https://app.clio.com/api/v4"
     _oauthBaseUrl = "https://app.clio.com/oauth"
     _redirectBaseUrl = "http://127.0.0.1"
     _authorizationBlankHeader = "Authorization: Bearer"
-
 
     # Constructor
     def __init__(self, clientId: str, clientSecret: str, refreshToken: str = None, userInstalledCustomActions: list[tuple[CustomAction, int]] = None):
@@ -34,8 +32,7 @@ class Clio:
 
         self._state = None
 
-        self.userInstalledCustomActions = userInstalledCustomActions # list[(CustomAction, id)] #TODO: use a dict[id, CustomAction] instead
-        
+        self.userInstalledCustomActions = userInstalledCustomActions  # list[(CustomAction, id)] #TODO: use a dict[id, CustomAction] instead
 
     # Authorization Methods
     def getAuthorizationRequestLink(self) -> str:
@@ -48,7 +45,7 @@ class Clio:
         """
         if self.isAuthorized:
             return None
-        
+
         # Set the state
         self._state = ''.join(random.choices(string.ascii_letters + string.digits, k=random.randint(15, 30)))
 
@@ -61,7 +58,6 @@ class Clio:
             "state": self._state,
         }
         return f"{self._oauthBaseUrl}/authorize?{urlencode(params)}"
-    
 
     def handleAuthorizationResponse(self, state: str, code: str = None, error: str = None) -> bool:
         """
@@ -70,7 +66,7 @@ class Clio:
         ### Args:
         - state: the returned state from the authorization request
         - code (optional): the authorization code
-        - error (optional): the error code - None if no error, 'access_denied' if the user declined the authorization 
+        - error (optional): the error code - None if no error, 'access_denied' if the user declined the authorization
 
         ### Returns:
         - True if the authorization was successful (or already authorized), False otherwise
@@ -79,7 +75,7 @@ class Clio:
             return True
         if error is not None and state != self._state:
             return False
-        
+
         self._state = None
 
         # Make the request
@@ -88,7 +84,7 @@ class Clio:
             "code": code,
             "client_id": self._clientId,
             "client_secret": self._clientSecret,
-            "redirect_uri": f"{self._redirectBaseUrl}/authorized", # should be the same as the one in the authorization request
+            "redirect_uri": f"{self._redirectBaseUrl}/authorized",  # should be the same as the one in the authorization request
         }
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -103,7 +99,6 @@ class Clio:
         self._refreshToken = data["refresh_token"]
         self.whenTokenExpires = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
         return True
-    
 
     def checkAccessToken(self) -> bool:
         """
@@ -115,7 +110,6 @@ class Clio:
         if self._token is None or self.whenTokenExpires is None:
             return False
         return datetime.now(timezone.utc) < self.whenTokenExpires
-    
 
     def refreshToken(self) -> bool:
         """
@@ -131,7 +125,7 @@ class Clio:
         """
         if self._refreshToken is None:
             return False
-        
+
         # Make the request
         params = {
             "grant_type": "refresh_token",
@@ -146,14 +140,13 @@ class Clio:
 
         if response.status_code != 200:
             return False
-        
+
         # Set the tokens
         data = response.json()
         self._token = data["access_token"]
         self.whenTokenExpires = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         return True
-    
 
     # Custom Action Methods
     def installCustomActions(self, customActions: set[CustomAction]) -> dict[str, list[tuple[CustomAction, str]]]:
@@ -183,11 +176,10 @@ class Clio:
                     returnDict["success"].add((customAction, "Installed"))
                 else:
                     returnDict["failed"].add((customAction, installation[1]))
-            else: # how did we get here? Likely not fully implemented
+            else:  # how did we get here? Likely not fully implemented
                 returnDict["failed"].add((customAction, "Not implemented"))
 
         return returnDict
-
 
     def removeCustomActions(self, customActions: set[CustomAction]) -> dict[str, list[tuple[CustomAction, str]]]:
         """
@@ -207,14 +199,14 @@ class Clio:
         for installedAction in self.userInstalledCustomActions:
             if installedAction[0] not in customActions:
                 continue
-            
+
             if installedAction[0] == Clio.CustomAction.GENERATE_DOCUMENT:
                 removal = self._removeActionGenerateDocument()
                 if removal[0]:
                     returnDict["success"].add((installedAction[0], "Removed"))
                 else:
                     returnDict["failed"].add((installedAction[0], removal[1]))
-            else: # how did we get here? Likely not fully implemented
+            else:  # how did we get here? Likely not fully implemented
                 returnDict["failed"].add((installedAction[0], "Not implemented"))
 
             customActions.remove(installedAction[0])
@@ -223,7 +215,6 @@ class Clio:
             returnDict["failed"].add((customAction, "Not installed"))
 
         return returnDict
-    
 
     def _installActionGenerateDocument(self) -> tuple[bool, str]:
         """
@@ -235,7 +226,7 @@ class Clio:
         """
         params = {
             "label": "Generate Document",
-            "target_url": f"{self._redirectBaseUrl}/custom_actions/generate_document", #TODO: proper URL
+            "target_url": f"{self._redirectBaseUrl}/custom_actions/generate_document",  # TODO: proper URL
             "ui_reference": "matters/show",
         }
         response = requests.post(f"{self._baseUrl}/custom_actions.json", data=params)
@@ -245,7 +236,6 @@ class Clio:
             self.userInstalledCustomActions.add((Clio.CustomAction.GENERATE_DOCUMENT, response.json()["id"]))
 
         return handledReponse
-    
 
     def _removeActionGenerateDocument(self) -> tuple[bool, str]:
         """
@@ -263,7 +253,6 @@ class Clio:
 
         response = requests.delete(f"{self._baseUrl}/custom_actions/{id}.json")
         return self._handleRequest(response)
-
 
     def handleCustomActions(self, params: dict) -> dict:
         """
@@ -283,9 +272,8 @@ class Clio:
         # parse the subject_url based on the custom_action_id
         pass
 
-
     # Hidden API Wrapper Methods
-        #TODO: Consider adding rate limiting (monitoring the headers of the response)
+    # TODO: Consider adding rate limiting (monitoring the headers of the response)
     def _makeCall(self, method: str, path: str, data: dict = None) -> dict:
         """
         Make a Clio API call.
@@ -295,7 +283,6 @@ class Clio:
         - ...
         """
         pass
-
 
     def _handleRequest(self, response: requests.Response) -> tuple[bool, str]:
         """
@@ -309,6 +296,5 @@ class Clio:
         """
         pass
 
-
     # API GET Methods
-    
+
