@@ -5,6 +5,7 @@ import json
 import random
 import string
 from datetime import datetime, timedelta, timezone
+import re
 
 
 # Clio Client
@@ -14,6 +15,138 @@ class Clio:
         GENERATE_DOCUMENT = 1
         # IMPORT_MATTER_FROM_GOOGLE_FORMS = 2 #NYI
 
+    class Address:
+        def __init__(self, street: str, city: str, state: str, zipcode: str, country: str, name: str = "Other"):
+            self.street = street
+            self.city = city
+            self.state = state
+            self.zipcode = zipcode
+            self.country = country
+            self.name = name.capitalize()
+
+            if self.name not in {"Work", "Home", "Billing"}:
+                self.name = "Other"
+
+        def _propercase(self, string: str) -> str:  # this will work for most things in an address
+            return ' '.join(word[0].upper() + word[1:] for word in string.split())
+
+        def fixCase(self) -> None:
+            """
+            Iterates over self fixing the case of street, city, state, and country.
+            Does not remove existing capitalization, but capitalizes the first letter of each word.
+            Also removes repeated spaces.
+            """
+            self.street = self._propercase(self.street)
+            self.city = self._propercase(self.city)
+            self.state = self._propercase(self.state)
+            self.country = self._propercase(self.country)
+
+    class Email:
+        def __init__(self, email: str, isDefault: bool = True, name: str = "Other"):
+            self.email = email  # could check if valid email?
+            self.name = name.capitalize()
+            self.default = isDefault
+
+            if self.name not in {"Work", "Home"}:
+                self.name = "Other"
+
+    class phoneNumber:
+        # accept both integer and string numbers
+        def __init__(self, number, isDefault: bool = True, name: str = "Other"):
+            self.default = isDefault
+            self.name = name.capitalize()
+
+            # assume US numbers
+            if type(number) is str:
+                self.number = int(re.sub("[^0-9]", "", number))
+            if self.number < 9999999999:
+                self.number += 10000000000
+
+            if self.name not in {"Work", "Home", "Mobile", "Fax", "Pager", "Skype"}:
+                self.name = "Other"
+
+    class Contact:
+        # requires at least first and last name
+        def __init__(self, firstName: str, lastName: str, contactType: str = "Person",
+                     middleName: str = None, title: str = None, addresses: list["Clio.Address"] = None,
+                     company: int = None, customFields: dict[int, str] = None, dob: str = None,
+                     emails: list["Clio.Email"] = None, phoneNumbers: list["Clio.phoneNumber"] = None,
+                     id: int = None, etag: str = None):
+            self.firstName = firstName
+            self.lastName = lastName
+            self.middleName = middleName
+            self.title = title
+            self.addresses = addresses
+            self.company = company
+            self.customFields = customFields
+            self.dob = dob  # could make this date type?
+            self.emails = emails
+            self.phoneNumbers = phoneNumbers
+            self.id = id
+            self.etag = etag
+
+            self.contactType = contactType.capitalize()
+            if self.contactType != "Person":
+                self.contactType = "Company"
+
+        def toDict(self) -> dict:
+            """
+            Create a dictionary of Contact compatible with Clio API.
+            Does not include members that are None.
+
+            ### Returns:
+            - dictionary of contact
+            """
+            addressDicts = []
+            emailDicts = []
+            phoneDicts = []
+            customFieldDicts = []
+
+            for address in self.addresses:
+                addressDict = address.toDict()
+                if addressDict is not None:
+                    addressDicts.append(addressDict)
+            for email in self.emails:
+                emailDict = email.toDict()
+                if emailDict is not None:
+                    emailDicts.append(emailDict)
+            for phone in self.phoneNumbers:
+                phoneDict = phone.toDict()
+                if phoneDict is not None:
+                    phoneDicts.append(phoneDict)
+
+            for customField in self.customFields.items():
+                customFieldDicts.append(
+                    {
+                        "value": customField[1],
+                        "custom_field": {
+                            "id": customField[0],
+                        },
+                    }
+                )
+
+            dictionary = {
+                    "id": self.id,
+                    "etag": self.etag,
+                    "firt_name": self.firstName,
+                    "last_name": self.lastName,
+                    "type": self.contactType,
+                    "middle_name": self.middleName,
+                    "title": self.title,
+                    "company": self.company,
+                    "date_of_birth": self.dob,
+                    "addresses": addressDicts,
+                    "email_addresses": emailDicts,
+                    "phone_numbers": phoneDicts,
+                    "custom_field_values": customFieldDicts,
+            }
+
+            for key, value in dictionary.items():
+                if value is None or value.len() == 0:
+                    dictionary.pop(key)
+
+            return dictionary
+
     # Class Variables
     _baseUrl = "https://app.clio.com/api/v4"
     _oauthBaseUrl = "https://app.clio.com/oauth"
@@ -21,7 +154,7 @@ class Clio:
     _authorizationBlankHeader = "Authorization: Bearer"
 
     # Constructor
-    def __init__(self, clientId: str, clientSecret: str, refreshToken: str = None, userInstalledCustomActions: dict[int, CustomAction] = None):
+    def __init__(self, clientId: str, clientSecret: str, refreshToken: str = None, userInstalledCustomActions: dict[int, "Clio.CustomAction"] = None):
         self._clientId = clientId
         self._clientSecret = clientSecret
 
@@ -151,7 +284,7 @@ class Clio:
         return True
 
     # Custom Action Methods
-    def installCustomActions(self, customActions: set[CustomAction]) -> dict[str, list[tuple[CustomAction, str]]]:
+    def installCustomActions(self, customActions: set["Clio.CustomAction"]) -> dict[str, list[tuple["Clio.CustomAction", str]]]:
         """
         Install custom actions into Clio Manage.
 
@@ -183,7 +316,7 @@ class Clio:
 
         return returnDict
 
-    def removeCustomActions(self, customActions: set[CustomAction]) -> dict[str, list[tuple[CustomAction, str]]]:
+    def removeCustomActions(self, customActions: set["Clio.CustomAction"]) -> dict[str, list[tuple["Clio.CustomAction", str]]]:
         """
         Remove custom actions from Clio Manage.
 
@@ -237,7 +370,7 @@ class Clio:
         response = requests.get(f"{self.baseUrl}/custom_actions/{id}.json", params=params, headers=headers)
         handledResponse = self._handleRequest(response)  # expect "200 Ok" -- 404 is also likely acceptable if id does not exist
         if handledResponse[0]:
-            label = response.json()["label"]
+            label = response.json()["data"]["label"]
 
         return label
 
@@ -264,7 +397,7 @@ class Clio:
 
         if handledReponse[0]:
             # There should not be any repeated id's. If there is we have old data
-            self.userInstalledCustomActions[response.json()["id"]] = Clio.CustomAction.GENERATE_DOCUMENT
+            self.userInstalledCustomActions[response.json()["data"]["id"]] = Clio.CustomAction.GENERATE_DOCUMENT
 
         return handledReponse
 
@@ -315,6 +448,120 @@ class Clio:
         # verify the nonce
         # parse the subject_url based on the custom_action_id
         pass
+
+    def getAllContacts(self) -> dict:
+        """
+        Get all contacts in Clio. Will likely be used for updating internal database.
+        Required for getting specific contact, as id is needed.
+        Does not yet include any filtering support (TODO).
+
+        ### Returns:
+        - contact list dictionary
+        """
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
+        params = {
+            # "fields": "",  # include only certain fields - keep this short for ALL: name, email, address, DOB, type, client?, phone, folder, etag
+            # "order": "",  # likely order by id for ALL which is default
+            # "query": "",  # some future query parameter support
+            # "type": "person",  # only include people, not companies
+            # "updated_since": "ISO-8601 timestamp",  # for updating records efficiently
+            # "client_only": true,  # only include clients
+            # "email_only": true,  # only include contacts with an email on file
+        }
+        response = requests.get(f"{self._baseUrl}/contacts.json", headers=headers, params=params)  # expect "200 Ok"
+        self._handleRequest(response)
+        # do something useful here...
+        return response.json()
+
+    def getContact(self, id: int) -> dict:
+        """
+        Get detailed information about Clio contact related to id.
+        Does not yet include querying specific parameters (TODO).
+        Includes these parameters by default: (TODO)
+
+        ### Args:
+        - id of contact
+
+        ### Returns:
+        - contact dictionary
+        """
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+            # "IF-MODIFIED-SINCE": "RFC 2822 timestamp",  # return 304 if not modified since last query (store locally)
+            # "IF-NONE-MATCH": "ETag",  # return 304 if Etag does not different from local store
+        }
+        params = {
+            # "fields": "",  # include relevant fields for document generation
+            # "custom_field_ids": [],  # get specific custom fields (this requires querying custom fields separately - Not Implemented)
+        }
+        response = requests.get(f"{self._baseUrl}/contacts/{id}.json", headers=headers, params=params)  # expect "200 Ok"
+        self._handleRequest(response)
+        # do something useful...
+        return response.json()
+
+    def createContact(self, contactData: "Clio.Contact") -> int:
+        """
+        Create a new contact based on contactData.
+        Use updateContact() instead if contact already exists.
+
+        ### Args:
+        - contactData: contact instance to add to Clio
+
+        ### Returns:
+        - id on success, negative on failure
+        """
+        if contactData.id is not None or contactData.etag is not None:
+            # contact already exists
+            return -1
+
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
+        response = requests.post(f"{self._baseUrl}/contacts.json", headers=headers, data=contactData.toDict())
+        self._handleRequest(response)
+
+        if response.status_code != 201:
+            return -2
+        responseData = response.json()["data"]
+        newId = responseData["id"]
+        newEtag = responseData["etag"]
+        contactData.id = newId
+        contactData.etag = newEtag
+        return newId  # not returning etag
+
+    def upateContact(self, contactData: "Clio.Contact", overwrite: bool = False) -> int:
+        """
+        Update a contact based on contactData.
+        Use createContact() if contact does not already exist.
+
+        ### Args:
+        - contactData: contact instance to update in Clio.
+        - overwrite: if True update contact without checking etag, on false check etag -- if no match contact was updated elsewhere, do nothing.
+
+        ### Returns:
+        - id on success, negative on failure
+        """
+        if contactData.id is None:
+            # contact does not exist, or we do not know what to update
+            return -1
+        if contactData.etag is None and (not overwrite):
+            # we do not have a current etag, so cannot perform check
+            return -3
+
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+            "IF-MATCH": contactData.etag
+        }
+        response = requests.post(f"{self._baseUrl}/contacts/{contactData.id}.json", headers=headers, data=contactData.toDict())
+        self._handleRequest(response)
+
+        if response.status_code != 200:
+            return -2
+        responseData = response.json()["data"]
+        contactData.etag = responseData["etag"]
+        return responseData["id"]
 
     # Hidden API Wrapper Methods
     # TODO: Consider adding rate limiting (monitoring the headers of the response)
