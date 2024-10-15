@@ -81,7 +81,7 @@ class Clio:
         self._state = None
 
         # Make the request
-        params = {
+        data = {
             "grant_type": "authorization_code",
             "code": code,
             "client_id": self._clientId,
@@ -91,7 +91,7 @@ class Clio:
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
         }
-        response = requests.post(f"{self._oauthBaseUrl}/token", data=params, headers=headers)
+        response = requests.post(f"{self._oauthBaseUrl}/token", data=data, headers=headers)
         if response.status_code != 200:
             return False
 
@@ -129,7 +129,7 @@ class Clio:
             return False
 
         # Make the request
-        params = {
+        data = {
             "grant_type": "refresh_token",
             "refresh_token": self._refreshToken,
             "client_id": self._clientId,
@@ -138,7 +138,7 @@ class Clio:
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
         }
-        response = requests.post(f"{self._oauthBaseUrl}/token", data=params, headers=headers)
+        response = requests.post(f"{self._oauthBaseUrl}/token", data=data, headers=headers)
 
         if response.status_code != 200:
             return False
@@ -228,10 +228,13 @@ class Clio:
         ### Returns: label of custom action associated with id. Returns empty string if id does not exist.
         """
         label = ""
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
         params = {
             "fields": "label",
         }
-        response = requests.get(f"{self.baseUrl}/custom_actions/{id}.json", data=params)
+        response = requests.get(f"{self.baseUrl}/custom_actions/{id}.json", params=params, headers=headers)
         handledResponse = self._handleRequest(response)
         if handledResponse[0]:
             label = response.json()["label"]
@@ -246,12 +249,17 @@ class Clio:
         ### Returns:
         - tuple of (True, "Installed") if the installation was successful, (False, reason) otherwise
         """
-        params = {
-            "label": "Generate Document",
-            "target_url": f"{self._redirectBaseUrl}/custom_actions/generate_document",  # TODO: proper URL
-            "ui_reference": "matters/show",
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
         }
-        response = requests.post(f"{self._baseUrl}/custom_actions.json", data=params)
+        data = {
+            "data": {
+                "label": "Generate Document",
+                "target_url": f"{self._redirectBaseUrl}/custom_actions/generate_document",  # TODO: proper URL
+                "ui_reference": "matters/show",
+            }
+        }
+        response = requests.post(f"{self._baseUrl}/custom_actions.json", data=data, headers=headers)
         handledReponse = self._handleRequest(response)
 
         if handledReponse[0]:
@@ -268,6 +276,10 @@ class Clio:
         ### Returns:
         - tuple of (True, "Removed") if the removal was successful, (False, reason) otherwise
         """
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
+
         id = None
         for action in self.userInstalledCustomActions.items():
             if action[1] == Clio.CustomAction.GENERATE_DOCUMENT:
@@ -278,7 +290,7 @@ class Clio:
             self.userInstalledCustomActions.pop(id)  # remove bad record
             return (False, "We have invalid ID for \"Generate Document\" custom action!")
 
-        response = requests.delete(f"{self._baseUrl}/custom_actions/{id}.json")
+        response = requests.delete(f"{self._baseUrl}/custom_actions/{id}.json", headers=headers)
         handledResponse = self._handleRequest(response)
 
         if handledResponse[0]:
