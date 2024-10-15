@@ -235,7 +235,7 @@ class Clio:
             "fields": "label",
         }
         response = requests.get(f"{self.baseUrl}/custom_actions/{id}.json", params=params, headers=headers)
-        handledResponse = self._handleRequest(response)
+        handledResponse = self._handleRequest(response)  # expect "200 Ok" -- 404 is also likely acceptable if id does not exist
         if handledResponse[0]:
             label = response.json()["label"]
 
@@ -260,7 +260,7 @@ class Clio:
             }
         }
         response = requests.post(f"{self._baseUrl}/custom_actions.json", data=data, headers=headers)
-        handledReponse = self._handleRequest(response)
+        handledReponse = self._handleRequest(response)  # expect "201 Created" response
 
         if handledReponse[0]:
             # There should not be any repeated id's. If there is we have old data
@@ -291,7 +291,7 @@ class Clio:
             return (False, "We have invalid ID for \"Generate Document\" custom action!")
 
         response = requests.delete(f"{self._baseUrl}/custom_actions/{id}.json", headers=headers)
-        handledResponse = self._handleRequest(response)
+        handledResponse = self._handleRequest(response)  # expect "204 No Content"
 
         if handledResponse[0]:
             self.userInstalledCustomActions.pop(id)
