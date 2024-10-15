@@ -21,7 +21,7 @@ class Clio:
     _authorizationBlankHeader = "Authorization: Bearer"
 
     # Constructor
-    def __init__(self, clientId: str, clientSecret: str, refreshToken: str = None, userInstalledCustomActions: list[tuple[CustomAction, int]] = None):
+    def __init__(self, clientId: str, clientSecret: str, refreshToken: str = None, userInstalledCustomActions: dict[int, CustomAction] = None):
         self._clientId = clientId
         self._clientSecret = clientSecret
 
@@ -32,7 +32,9 @@ class Clio:
 
         self._state = None
 
-        self.userInstalledCustomActions = userInstalledCustomActions  # list[(CustomAction, id)] #TODO: use a dict[id, CustomAction] instead
+        self.userInstalledCustomActions = userInstalledCustomActions  # dict[id, CustomAction]
+
+        self._rateLimitRemaining = 100
 
     # Authorization Methods
     def getAuthorizationRequestLink(self) -> str:
@@ -164,10 +166,10 @@ class Clio:
             "failed": list(),
         }
 
-        for installedAction in self.userInstalledCustomActions:
-            if installedAction[0] in customActions:
-                customActions.remove(installedAction[0])
-                returnDict["failed"].add((installedAction[0], "Already installed"))
+        for installedAction in self.userInstalledCustomActions.values():
+            if installedAction in customActions:
+                customActions.remove(installedAction)
+                returnDict["failed"].add((installedAction, "Already installed"))
 
         for customAction in customActions:
             if customAction == Clio.CustomAction.GENERATE_DOCUMENT:
@@ -196,25 +198,45 @@ class Clio:
             "failed": list(),
         }
 
-        for installedAction in self.userInstalledCustomActions:
-            if installedAction[0] not in customActions:
+        for installedAction in self.userInstalledCustomActions.values():
+            if installedAction not in customActions:
                 continue
 
-            if installedAction[0] == Clio.CustomAction.GENERATE_DOCUMENT:
+            if installedAction == Clio.CustomAction.GENERATE_DOCUMENT:
                 removal = self._removeActionGenerateDocument()
                 if removal[0]:
-                    returnDict["success"].add((installedAction[0], "Removed"))
+                    returnDict["success"].add((installedAction, "Removed"))
                 else:
-                    returnDict["failed"].add((installedAction[0], removal[1]))
+                    returnDict["failed"].add((installedAction, removal[1]))
             else:  # how did we get here? Likely not fully implemented
-                returnDict["failed"].add((installedAction[0], "Not implemented"))
+                returnDict["failed"].add((installedAction, "Not implemented"))
 
-            customActions.remove(installedAction[0])
+            customActions.remove(installedAction)
 
         for customAction in customActions:
             returnDict["failed"].add((customAction, "Not installed"))
 
         return returnDict
+
+    def getCustomAction(self, id: int) -> str:
+        """
+        Get label for custom action installed in Clio.
+
+        ### Args:
+        - id: id for custom action
+
+        ### Returns: label of custom action associated with id. Returns empty string if id does not exist.
+        """
+        label = ""
+        params = {
+            "fields": "label",
+        }
+        response = requests.get(f"{self.baseUrl}/custom_actions/{id}.json", data=params)
+        handledResponse = self._handleRequest(response)
+        if handledResponse[0]:
+            label = response.json()["label"]
+
+        return label
 
     def _installActionGenerateDocument(self) -> tuple[bool, str]:
         """
@@ -233,7 +255,8 @@ class Clio:
         handledReponse = self._handleRequest(response)
 
         if handledReponse[0]:
-            self.userInstalledCustomActions.add((Clio.CustomAction.GENERATE_DOCUMENT, response.json()["id"]))
+            # There should not be any repeated id's. If there is we have old data
+            self.userInstalledCustomActions[response.json()["id"]] = Clio.CustomAction.GENERATE_DOCUMENT
 
         return handledReponse
 
@@ -246,13 +269,22 @@ class Clio:
         - tuple of (True, "Removed") if the removal was successful, (False, reason) otherwise
         """
         id = None
-        for action in self.userInstalledCustomActions:
-            if action[0] == Clio.CustomAction.GENERATE_DOCUMENT:
-                id = action[1]
+        for action in self.userInstalledCustomActions.items():
+            if action[1] == Clio.CustomAction.GENERATE_DOCUMENT:
+                id = action[0]
                 break
 
+        if self.getCustomAction(id) != "Generate Document":
+            self.userInstalledCustomActions.pop(id)  # remove bad record
+            return (False, "We have invalid ID for \"Generate Document\" custom action!")
+
         response = requests.delete(f"{self._baseUrl}/custom_actions/{id}.json")
-        return self._handleRequest(response)
+        handledResponse = self._handleRequest(response)
+
+        if handledResponse[0]:
+            self.userInstalledCustomActions.pop(id)
+
+        return handledResponse
 
     def handleCustomActions(self, params: dict) -> dict:
         """
