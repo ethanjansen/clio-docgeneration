@@ -552,8 +552,9 @@ class Clio:
 
         headers = {
             "Authorization": f"{self._authorizationBlankHeader} {self._token}",
-            "IF-MATCH": contactData.etag
         }
+        if not overwrite:
+            headers["IF-MATCH"]: contactData.etag
         response = requests.post(f"{self._baseUrl}/contacts/{contactData.id}.json", headers=headers, data=contactData.toDict())
         self._handleRequest(response)
 
