@@ -16,13 +16,16 @@ class Clio:
         # IMPORT_MATTER_FROM_GOOGLE_FORMS = 2 #NYI
 
     class Address:
-        def __init__(self, street: str, city: str, state: str, zipcode: str, country: str, name: str = "Other"):
+        def __init__(self, street: str, city: str, state: str, zipcode: str, country: str, isDefault: bool = True, name: str = "Other", id: int = None, etag: str = None):
             self.street = street
             self.city = city
             self.state = state
             self.zipcode = zipcode
             self.country = country
+            self.id = id
+            self.etag = etag
             self.name = name.capitalize()
+            self.default = isDefault
 
             if self.name not in {"Work", "Home", "Billing"}:
                 self.name = "Other"
@@ -41,53 +44,192 @@ class Clio:
             self.state = self._propercase(self.state)
             self.country = self._propercase(self.country)
 
+        def toDict(self) -> dict:
+            """
+            Create a dictionary of contact address compatible with Clio API.
+
+            ### Returns:
+            - dictionary of contact address
+            """
+            dictionary = {
+                    "id": self.id,
+                    "etag": self.etag,
+                    "street": self.street,
+                    "city": self.city,
+                    "province": self.state,
+                    "postal_code": self.zipcode,
+                    "country": self.country,
+                    "name": self.name,
+                    "primary": self.default,
+                    }
+            return dictionary
+
+        def updateFromDict(self, clioAddressDict: dict, updateExisting: bool = True) -> None:
+            """
+            Update the values of a default address from a dicionary (from Clio api call).
+            This will also update existing values from dictionary unless specified otherwise.
+            Does not update null values from dictionary.
+
+            ### Args:
+            - clioAddressDict: contact address dictionary from Clio api
+            - updateExisting: True to update values already set in instance, False to not
+            """
+            if not updateExisting:
+                # all but id and etag will definitely have existing values
+                if self.id is None:
+                    self.id = clioAddressDict["id"]
+                if self.etag is None:
+                    self.etag = clioAddressDict["etag"]
+
+            else:
+                self.id = clioAddressDict.get("id", self.id)
+                self.etag = clioAddressDict.get("etag", self.etag)
+                self.street = clioAddressDict.get("street", self.street)
+                self.city = clioAddressDict.get("city", self.city)
+                self.state = clioAddressDict.get("province", self.state)
+                self.zipcode = clioAddressDict.get("postal_code", self.zipcode)
+                self.country = clioAddressDict.get("country", self.country)
+                self.name = clioAddressDict.get("name", self.name)
+                self.default = clioAddressDict.get("primary", self.default)
+
     class Email:
-        def __init__(self, email: str, isDefault: bool = True, name: str = "Other"):
+        def __init__(self, email: str, isDefault: bool = True, name: str = "Other", id: int = None, etag: str = None):
             self.email = email  # could check if valid email?
             self.name = name.capitalize()
             self.default = isDefault
+            self.id = id
+            self.etag = etag
 
             if self.name not in {"Work", "Home"}:
                 self.name = "Other"
 
-    class phoneNumber:
-        # accept both integer and string numbers
-        def __init__(self, number, isDefault: bool = True, name: str = "Other"):
+        def toDict(self) -> dict:
+            """
+            Create a dictionary of contact email address compatible with Clio API.
+
+            ### Returns:
+            - dictionary of contact email address
+            """
+            dictionary = {
+                "id": self.id,
+                "etag": self.etag,
+                "address": self.email,
+                "name": self.name,
+                "primary": self.default,
+            }
+            return dictionary
+
+        def updateFromDict(self, clioEmailDict: dict, updateExisting: bool = True) -> None:
+            """
+            Update the values of a default email address from a dictionary (from Clio api).
+            This will also update existing values from dictionary unless specified otherwise.
+            Does not update null values from dictionary.
+
+            ### Args:
+            - clioEmailDict: contact email address dictionary from Clio api
+            - updateExisting: True to update values already set in instance, False to not
+            """
+            if not updateExisting:
+                # all but id and etag will definitely have existing values
+                if self.id is None:
+                    self.id = clioEmailDict["id"]
+                if self.etag is None:
+                    self.etag = clioEmailDict["etag"]
+
+            else:
+                self.id = clioEmailDict.get("id", self.id)
+                self.etag = clioEmailDict.get("etag", self.etag)
+                self.email = clioEmailDict.get("address", self.email)
+                self.name = clioEmailDict.get("name", self.name)
+                self.default = clioEmailDict.get("primary", self.default)
+
+    class PhoneNumber:
+        def __init__(self, number: str, isDefault: bool = True, name: str = "Other", id: int = None, etag: str = None):
+            self.number = number  # could check if valid phone number (assuming US?)
             self.default = isDefault
             self.name = name.capitalize()
-
-            # assume US numbers
-            if type(number) is str:
-                self.number = int(re.sub("[^0-9]", "", number))
-            if self.number < 9999999999:
-                self.number += 10000000000
+            self.id = id
+            self.etag = etag
 
             if self.name not in {"Work", "Home", "Mobile", "Fax", "Pager", "Skype"}:
                 self.name = "Other"
+
+        def toDict(self) -> dict:
+            """
+            Create a dictionary of contact phone number compatible with Clio API.
+
+            ### Returns:
+            - dictionary of contact phone number
+            """
+            dictionary = {
+                "id": self.id,
+                "etag": self.etag,
+                "number": self.number,
+                "name": self.name,
+                "primary": self.default,
+            }
+            return dictionary
+
+        def updateFromDict(self, clioPhoneDict: dict, updateExisting: bool = True) -> None:
+            """
+            Update the values of a default PhoneNumber from a dictionary (from Clio api).
+            This will also update existing values from dictionary unless specified otherwise.
+            Does ont update null values from dictionary.
+
+            ### Args:
+            - clioPhoneDict: contact phone number dictionary from Clio api
+            - updateExisting: True to update values already set in instance, False to not
+            """
+            if not updateExisting:
+                # all but id and etag will definitely have existing values
+                if self.id is None:
+                    self.id = clioPhoneDict["id"]
+                if self.etag is None:
+                    self.etag = clioPhoneDict["etag"]
+
+            else:
+                self.id = clioPhoneDict.get("id", self.id)
+                self.etag = clioPhoneDict.get("etag", self.etag)
+                self.number = clioPhoneDict.get("number", self.number)
+                self.name = clioPhoneDict.get("name", self.name)
+                self.default = clioPhoneDict.get("primary", self.default)
 
     class Contact:
         # requires at least first and last name
         def __init__(self, firstName: str, lastName: str, contactType: str = "Person",
                      middleName: str = None, title: str = None, addresses: list["Clio.Address"] = None,
                      company: int = None, customFields: dict[int, str] = None, dob: str = None,
-                     emails: list["Clio.Email"] = None, phoneNumbers: list["Clio.phoneNumber"] = None,
+                     emails: list["Clio.Email"] = None, phoneNumbers: list["Clio.PhoneNumber"] = None,
                      id: int = None, etag: str = None):
             self.firstName = firstName
             self.lastName = lastName
             self.middleName = middleName
             self.title = title
-            self.addresses = addresses
+            self.addresses = self._ensureSingleDefault(addresses)
             self.company = company
             self.customFields = customFields
             self.dob = dob  # could make this date type?
-            self.emails = emails
-            self.phoneNumbers = phoneNumbers
+            self.emails = self._ensureSingleDefault(emails)
+            self.phoneNumbers = self._ensureSingleDefault(phoneNumbers)
             self.id = id
             self.etag = etag
 
             self.contactType = contactType.capitalize()
             if self.contactType != "Person":
                 self.contactType = "Company"
+
+        def _ensureSingleDefault(self, items: list) -> list:
+            """
+            Checks that only one item in items is default.
+            If multiple defaults are found, the first default is kept default while the others are changed.
+
+            ### Args:
+            - items: list of Addresses/Emails/PhoneNumbers to check and fix (changes will be made in place)
+
+            ### Return:
+            - corrected items list
+            """
+            pass
 
         def toDict(self) -> dict:
             """
@@ -146,6 +288,24 @@ class Clio:
                     dictionary.pop(key)
 
             return dictionary
+
+        def updateFromDict(self, clioContactDict: dict) -> None:
+            """
+            Use this function to update the values of a default Contact from a dictionary (from Clio api call).
+            First create Contact: Clio.Contact(firstName=name, lastName=name, contactType=type)
+            Then call this with input dictionary.
+            This will also create new phoneNumber, Address, and Email instances as necessary.
+            This will also update first/last names and contactType.
+
+            ### Args:
+            - contact dictionary from Clio api
+            """
+            addresses = []
+            emails = []
+            phones = []
+
+            for addressDict in clioContactDict["addresses"]:
+                
 
     # Class Variables
     _baseUrl = "https://app.clio.com/api/v4"
@@ -473,6 +633,29 @@ class Clio:
         response = requests.get(f"{self._baseUrl}/contacts.json", headers=headers, params=params)  # expect "200 Ok"
         self._handleRequest(response)
         # do something useful here...
+        # create contacts
+        responseContacts = response.json()["data"]
+        returnList = []
+        for responseContact in responseContacts:
+            addresses = []
+            emails = []
+            phones = []
+
+
+            returnList.append(Clio.Contact(
+                                firstName=responseContact["first_name"],
+                                lastname=responseContact["last_name"],
+                                contactType=responseContact["type"],
+                                middleName=responseContact["middle_name"],
+                                title=responseContact["title"],
+                                addresses=addresses,
+                                dob=responseContact["date_of_birth"],
+                                emails=emails,
+                                phoneNumbers=phones,
+                                id=responseContact["id"],
+                                etag=responseContact["etag"]
+                                ))
+
         return response.json()
 
     def getContact(self, id: int) -> dict:
@@ -531,7 +714,7 @@ class Clio:
         contactData.etag = newEtag
         return newId  # not returning etag
 
-    def upateContact(self, contactData: "Clio.Contact", overwrite: bool = False) -> int:
+    def updateContact(self, contactData: "Clio.Contact", overwrite: bool = False) -> int:
         """
         Update a contact based on contactData.
         Use createContact() if contact does not already exist.
@@ -554,7 +737,7 @@ class Clio:
             "Authorization": f"{self._authorizationBlankHeader} {self._token}",
         }
         if not overwrite:
-            headers["IF-MATCH"]: contactData.etag
+            headers["IF-MATCH"] = contactData.etag
         response = requests.post(f"{self._baseUrl}/contacts/{contactData.id}.json", headers=headers, data=contactData.toDict())
         self._handleRequest(response)
 
@@ -562,6 +745,120 @@ class Clio:
             return -2
         responseData = response.json()["data"]
         contactData.etag = responseData["etag"]
+        return responseData["id"]
+
+    def getAllMatters(self) -> dict:
+        """
+        Get all matters in Clio. Will likely be used for updating internal database.
+        Required for getting specific matter, as id is needed.
+        Does not yet include any filtering support (TODO).
+
+        ### Returns:
+        - matter list dictionary
+        """
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
+        params = {
+            # "fields": "",  # include only certain fields - keep this short for ALL: name, email, address, DOB, type, client?, phone, folder, etag
+            # "order": "",  # likely order by id for ALL which is default
+            # "query": "",  # some future query parameter support
+            # "updated_since": "ISO-8601 timestamp",  # for updating records efficiently
+            # "client_id": ,  # matters related to a client
+            # "status": "open,pending", # do not include "closed" matters
+        }
+        response = requests.get(f"{self._baseUrl}/matters.json", headers=headers, params=params)  # expect "200 Ok"
+        self._handleRequest(response)
+        # do something useful here...
+        return response.json()
+
+    def getMatter(self, id: int) -> dict:
+        """
+        Get detailed information about Clio matter related to id.
+        Does not yet include querying specific parameters (TODO).
+        Includes these parameters by default: (TODO)
+
+        ### Args:
+        - id of matter
+
+        ### Returns:
+        - matter dictionary
+        """
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+            # "IF-MODIFIED-SINCE": "RFC 2822 timestamp",  # return 304 if not modified since last query (store locally)
+            # "IF-NONE-MATCH": "ETag",  # return 304 if Etag does not different from local store
+        }
+        params = {
+            # "fields": "",  # include relevant fields for document generation
+            # "custom_field_ids": [],  # get specific custom fields (this requires querying custom fields separately - Not Implemented)
+        }
+        response = requests.get(f"{self._baseUrl}/matters/{id}.json", headers=headers, params=params)  # expect "200 Ok"
+        self._handleRequest(response)
+        # do something useful...
+        return response.json()
+
+    def createMatter(self, matterData: "Clio.Matter") -> int:
+        """
+        Create a new matter based on matterData.
+        Use updateMatter() instead if matter already exists.
+
+        ### Args:
+        - matterData: matter instance to add to Clio
+
+        ### Returns:
+        - id on success, negative on failure
+        """
+        if matterData.id is not None or matterData.etag is not None:
+            # matter already exists
+            return -1
+
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
+        response = requests.post(f"{self._baseUrl}/matters.json", headers=headers, data=matterData.toDict())
+        self._handleRequest(response)
+
+        if response.status_code != 201:
+            return -2
+        responseData = response.json()["data"]
+        newId = responseData["id"]
+        newEtag = responseData["etag"]
+        matterData.id = newId
+        matterData.etag = newEtag
+        return newId  # not returning etag
+
+    def updateMatter(self, matterData: "Clio.Matter", overwrite: bool = False) -> int:
+        """
+        Update a matter based on matterData.
+        Use createMatter() if matter does not already exist.
+
+        ### Args:
+        - matterData: matter instance to update in Clio.
+        - overwrite: if True update matter without checking etag, on false check etag -- if no match matter was updated elsewhere, do nothing.
+
+        ### Returns:
+        - id on success, negative on failure
+        """
+        if matterData.id is None:
+            # matter does not exist, or we do not know what to update
+            return -1
+        if matterData.etag is None and (not overwrite):
+            # we do not have a current etag, so cannot perform check
+            return -3
+
+        headers = {
+            "Authorization": f"{self._authorizationBlankHeader} {self._token}",
+        }
+        if not overwrite:
+            headers["IF-MATCH"] = matterData.etag
+        response = requests.post(f"{self._baseUrl}/matters/{matterData.id}.json", headers=headers, data=matterData.toDict())
+        self._handleRequest(response)
+
+        if response.status_code != 200:
+            return -2
+        responseData = response.json()["data"]
+        matterData.etag = responseData["etag"]
         return responseData["id"]
 
     # Hidden API Wrapper Methods
